@@ -2,13 +2,10 @@
 
 Caldis is a distributed calculator. It's a project for my Distributed Systems class.
 
-## Libraries
-
-Suggestions given: psutil (to get CPU usage)
-
 ## Requirements
 
 ### General
+
 A comunicação entre os componentes (cliente, proxy reverso e servidores) deve ser feita via sockets em Python.
 O código deve ser organizado em arquivos separados para o cliente, proxy reverso e servidores.
 Testar a aplicação com múltiplos clientes e servidores para garantir o balanceamento correto de carga.
