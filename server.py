@@ -1,5 +1,5 @@
 from common import *
-import psutil, threading
+import psutil, threading, signal
 
 
 # must have ip, port1 and port2
@@ -12,74 +12,71 @@ if len(sys.argv) != 4:
 ip, port1, port2 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 
 
-# calculator service (main)
-  
-sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock1.bind((ip, port1))
-sock1.listen()
+# calculator service
 
-def calculate(a, b, op):
-  return 15
+l1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+l1.bind((ip, port1))
+l1.listen()
 
-def calculator():
-  while True:
-    sock, addr = sock1.accept()
-    print('Calculator: Received connection from', addr)
-
-    req = recv(sock)
-    print('Calculator: Message received:', req)
-
-    rsp_dict = { 'status': 0 }
+def calculate(req):
     try:
       req_dict = json.loads(req)
       a = req_dict['a']
       b = req_dict['b']
       op = req_dict['op']
+      result = eval(f'{a} {op} {b}')
 
-      rsp_dict['result'] = eval(f'{a} {op} {b}')
-    except ArithmeticError:
-      rsp_dict['status'] = MATH_ERROR
+      return { 'status': 0, 'result': result }
     except Exception as e:
-      rsp_dict['status'] = UNKNOWN_ERROR
       print(e)
+      return { 'status': 1, 'result': str(e) }
 
+def calc():
+  while True:
+    conn, addr = l1.accept()
+    print('Calculator: Received connection from', addr)
+
+    req = recv(conn)
+    print('Calculator: Message received:', req)
+
+    rsp_dict = calculate(req)
     rsp = json.dumps(rsp_dict)
-    send(sock, rsp)
+    send(conn, rsp)
+
+    conn.close()
+
+calc_th = threading.Thread(target=calc)
+calc_th.daemon = True
+calc_th.start()
 
 
-# cpu usage service (auxiliar)
+# cpu usage service
 
-sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # cpu usage
-sock2.bind((ip, port2))
-sock2.listen()
+l2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+l2.bind((ip, port2))
+l2.listen()
 
-def cpu_usage():
-  while True: 
-    sock, addr = sock2.accept()
+def cpu_usg():
+  while True:
+    conn, addr = l2.accept()
     print('CPU Usage: Received connection from', addr)
 
     usage = psutil.cpu_percent(interval=None)
     print(f'CPU Usage: usage is {usage}%')
 
     msg = str(usage)
-    send(sock, msg)
+    send(conn, msg)
 
+    conn.close()
 
-cpu_usage_thread = threading.Thread(target=cpu_usage)
-cpu_usage_thread.start()
-
-try:
-  calculator()
-except KeyboardInterrupt:
-  sock1.close()
-  print('\nCalculator: Bye...')
-except Exception as e:
-  print(e)
+cpu_usg_th = threading.Thread(target=cpu_usg)
+cpu_usg_th.daemon = True
+cpu_usg_th.start()
 
 try:
-  cpu_usage_thread.join()
+  calc_th.join()
+  cpu_usg_th.join()
 except KeyboardInterrupt:
-  sock2.close()
-  print('\nCPU Usage: Bye...')
-except Exception as e:
-  print(e)
+  l1.close()
+  l2.close()
+  print('\nBye...')

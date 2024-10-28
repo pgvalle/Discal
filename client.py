@@ -10,9 +10,9 @@ ip, port = sys.argv[1], int(sys.argv[2])
 def loop():
   try:
     while True:
-      a = float(input('type first number: '))
-      op = input('type operation: ')
-      b = float(input('type second number: '))
+      a = float(input('First number: '))
+      op = input('Operation: ')
+      b = float(input('Second number: '))
 
       req = json.dumps({ 'a': a, 'b': b, 'op': op })
 
@@ -22,10 +22,7 @@ def loop():
 
       rsp = recv(sock)
       rsp_dict = json.loads(rsp)
-      print('status code:', rsp_dict['status'])
-
-      if rsp_dict['status'] == 0:
-        print('result:', rsp_dict['result'])
+      print('Response:', rsp_dict)
 
       sock.close()
   except KeyboardInterrupt:
