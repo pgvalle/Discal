@@ -1,6 +1,6 @@
-# Caldis
+# Discal
 
-Caldis is a distributed calculator. It's a project for my Distributed Systems class.
+Discal is a distributed calculator. It's a project for my Distributed Systems class.
 
 ## Requirements
 
