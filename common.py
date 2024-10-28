@@ -1,5 +1,8 @@
 import sys, site, socket, json
 
+MATH_ERROR = 1
+UNKNOWN_ERROR = 2
+
 CHUNK = 1024
 ENCODING = 'utf-8'
 

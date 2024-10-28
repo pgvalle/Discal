@@ -21,7 +21,11 @@ def loop():
       send(sock, req)
 
       rsp = recv(sock)
-      print(rsp)
+      rsp_dict = json.loads(rsp)
+      print('status code:', rsp_dict['status'])
+
+      if rsp_dict['status'] == 0:
+        print('result:', rsp_dict['result'])
 
       sock.close()
   except KeyboardInterrupt:

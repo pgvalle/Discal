@@ -18,6 +18,9 @@ sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock1.bind((ip, port1))
 sock1.listen()
 
+def calculate(a, b, op):
+  return 15
+
 def calculator():
   while True:
     sock, addr = sock1.accept()
@@ -26,9 +29,21 @@ def calculator():
     req = recv(sock)
     print('Calculator: Message received:', req)
 
-    # calculate ...
+    rsp_dict = { 'status': 0 }
+    try:
+      req_dict = json.loads(req)
+      a = req_dict['a']
+      b = req_dict['b']
+      op = req_dict['op']
 
-    rsp = json.dumps({ 'status': 0, 'result': 0 })
+      rsp_dict['result'] = eval(f'{a} {op} {b}')
+    except ArithmeticError:
+      rsp_dict['status'] = MATH_ERROR
+    except Exception as e:
+      rsp_dict['status'] = UNKNOWN_ERROR
+      print(e)
+
+    rsp = json.dumps(rsp_dict)
     send(sock, rsp)
 
 
