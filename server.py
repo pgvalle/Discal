@@ -1,5 +1,5 @@
 from common import *
-import psutil, threading, signal
+import psutil, threading
 
 
 # must have ip, port1 and port2
@@ -31,7 +31,7 @@ def calculate(req):
       print(e)
       return { 'status': 1, 'result': str(e) }
 
-def calc():
+def calculator():
   while True:
     conn, addr = l1.accept()
     print('Calculator: Received connection from', addr)
@@ -45,9 +45,9 @@ def calc():
 
     conn.close()
 
-calc_th = threading.Thread(target=calc)
-calc_th.daemon = True
-calc_th.start()
+# starting calculator service
+t1 = threading.Thread(target=calculator, daemon=True)
+t1.start()
 
 
 # cpu usage service
@@ -56,7 +56,7 @@ l2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 l2.bind((ip, port2))
 l2.listen()
 
-def cpu_usg():
+def cpu_usage():
   while True:
     conn, addr = l2.accept()
     print('CPU Usage: Received connection from', addr)
@@ -69,15 +69,17 @@ def cpu_usg():
 
     conn.close()
 
-cpu_usg_th = threading.Thread(target=cpu_usg)
-cpu_usg_th.daemon = True
-cpu_usg_th.start()
+# starting cpu usage service
+t2 = threading.Thread(target=cpu_usage, daemon=True)
+t2.start()
 
 
 try:
-  calc_th.join()
-  cpu_usg_th.join()
+  t1.join()
+  t2.join()
 except KeyboardInterrupt:
   l1.close()
   l2.close()
   print('\nBye...')
+except Exception as e:
+  print(e)
