@@ -1,5 +1,5 @@
 from common import *
-import psutil, threading
+import psutil, threading, time
 
 
 # must have ip, port1 and port2
@@ -78,8 +78,9 @@ try:
   t1.join()
   t2.join()
 except KeyboardInterrupt:
-  l1.close()
-  l2.close()
   print('\nBye...')
 except Exception as e:
   print(e)
+finally:
+  l1.close()
+  l2.close()
