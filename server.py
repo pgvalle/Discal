@@ -73,6 +73,7 @@ cpu_usg_th = threading.Thread(target=cpu_usg)
 cpu_usg_th.daemon = True
 cpu_usg_th.start()
 
+
 try:
   calc_th.join()
   cpu_usg_th.join()
