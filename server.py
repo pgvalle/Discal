@@ -20,6 +20,10 @@ def main():
   # Port1 is for calculator service. Port2 is for the cpu usage service.
   ip, port1, port2 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 
+  # This fixes zombie child processes never terminating
+  signal.signal(signal.SIGCHLD, sigchld_handler)
+
+  # catch KeyboardInterrupt from both services
   try:
     if os.fork() == 0:  # Child. CPU usage service.
       cpu_usage(ip, port2)
@@ -65,7 +69,7 @@ def calculator(ip, port):
       print(f'Responded {addr} with {rsp}.')
 
       conn.close()
-      os._exit(0)
+      return
 
 
 # cpu usage service
@@ -75,9 +79,6 @@ def cpu_usage(ip, port):
   sock.settimeout(1)
   sock.bind((ip, port))
   sock.listen()
-
-  # This fixes zombie child processes never terminating
-  signal.signal(signal.SIGCHLD, sigchld_handler)
 
   while True:
     conn, addr = accept(sock)
@@ -90,7 +91,7 @@ def cpu_usage(ip, port):
       print(f'Sent {addr} current CPU usage: {usage}%.')
 
       conn.close()
-      os._exit(0)
+      return
 
 
 if __name__ == '__main__':
