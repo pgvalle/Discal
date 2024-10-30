@@ -16,15 +16,20 @@ def main():
       op = input('Operation: ')
       b = float(input('Second number: '))
 
-      req = json.dumps({ 'a': a, 'b': b, 'op': op })
-
-      sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # ipv4 tcp socket
+      sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       sock.connect((ip, port))
-      send(sock, req)
 
-      rsp = recv(sock)
-      rsp_dict = json.loads(rsp)
-      print('Response:', rsp_dict)
+      try:
+        req = json.dumps({ 'a': a, 'b': b, 'op': op })
+        req = req.encode(ENCODING)
+        sock.send(req)
+
+        rsp = sock.recv(CHUNK)
+        rsp = rsp.decode(ENCODING)
+        rsp = json.loads(rsp)
+        print(rsp['result'])
+      except TimeoutError:
+        print('Socket error')
 
       sock.close()
   except KeyboardInterrupt:

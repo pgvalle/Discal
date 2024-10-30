@@ -5,25 +5,25 @@ import json
 CHUNK = 1024
 ENCODING = 'utf-8'
 
-# Nonblocking accept regardless of socket.setblocking.
+# Blocking accept regardless of socket.setblocking.
 # With this only recv and send are blocking.
-def accept(sock):
+def blocking_accept(sock):
   while True:
     try:
       return sock.accept()
-    except socket.timeout:
+    except TimeoutError:
       pass
 
-def send(sock, msg):
+def nothrow_send(sock, msg):
   try:
     msg = msg.encode(ENCODING)
     return sock.send(msg)
-  except Exception as e:
+  except OSError:
     print(e)
 
-def recv(sock):
+def nothrow_recv(sock):
   try:
     msg = sock.recv(CHUNK)
     return msg.decode(ENCODING)
-  except Exception as e:
+  except OSError:
     print(e)
