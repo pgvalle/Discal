@@ -26,7 +26,7 @@ def loop():
 
       sock.close()
   except KeyboardInterrupt:
-    print('\nBye...')
+    print('Bye...')
   except Exception as e:
     print(e)
 
