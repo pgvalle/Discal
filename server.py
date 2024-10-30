@@ -1,5 +1,6 @@
 from common import *
-import psutil, threading, time
+import os
+import psutil
 
 
 # must have ip, port1 and port2
@@ -14,10 +15,6 @@ ip, port1, port2 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 
 # calculator service
 
-l1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-l1.bind((ip, port1))
-l1.listen()
-
 def calculate(req):
     try:
       req_dict = json.loads(req)
@@ -28,59 +25,68 @@ def calculate(req):
 
       return { 'status': 0, 'result': result }
     except Exception as e:
-      print(e)
       return { 'status': 1, 'result': str(e) }
 
 def calculator():
-  while True:
-    conn, addr = l1.accept()
-    print('Calculator: Received connection from', addr)
+  l = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  l.bind((ip, port1))
+  l.listen()
 
-    req = recv(conn)
-    print('Calculator: Message received:', req)
+  try:
+    while True:
+      conn, addr = l.accept()
 
-    rsp_dict = calculate(req)
-    rsp = json.dumps(rsp_dict)
-    send(conn, rsp)
+      # Child process. Receive request, respond then exit.
+      if os.fork() == 0:
+        req = recv(conn)
+        print(f'Received {req} from {addr}', end='. ')
 
-    conn.close()
+        rsp_dict = calculate(req)
+        rsp = json.dumps(rsp_dict)
+        print(f'Responding with {rsp}.')
 
-# starting calculator service
-t1 = threading.Thread(target=calculator, daemon=True)
-t1.start()
+        # Network errors may happen.
+        try:
+          send(conn, rsp)
+        except Exception as e:
+          print(e)
+
+        conn.close()
+        break
+  except KeyboardInterrupt:
+    l.close()
 
 
 # cpu usage service
 
-l2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-l2.bind((ip, port2))
-l2.listen()
-
 def cpu_usage():
-  while True:
-    conn, addr = l2.accept()
-    print('CPU Usage: Received connection from', addr)
+  l = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  l.bind((ip, port2))
+  l.listen()
 
-    usage = psutil.cpu_percent(interval=None)
-    print(f'CPU Usage: usage is {usage}%')
+  try:
+    while True:
+      conn, addr = l.accept()
 
-    msg = str(usage)
-    send(conn, msg)
+      # Child process. Send cpu usage then exit.
+      if os.fork() == 0:
+        usage = psutil.cpu_percent(interval=None)
+        print(f'Telling {addr} CPU usage now is {usage}%')
 
-    conn.close()
+        # Network errors may happen.
+        try:
+          send(conn, str(usage))
+        except Exception as e:
+          print(e)
 
-# starting cpu usage service
-t2 = threading.Thread(target=cpu_usage, daemon=True)
-t2.start()
+        conn.close()
+        break
+  except KeyboardInterrupt:
+    l.close()
 
 
-try:
-  t1.join()
-  t2.join()
-except KeyboardInterrupt:
-  print('\nBye...')
-except Exception as e:
-  print(e)
-finally:
-  l1.close()
-  l2.close()
+if __name__ == '__main__':
+  if os.fork() == 0:
+    cpu_usage()
+  else:
+    calculator()
