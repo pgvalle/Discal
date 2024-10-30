@@ -1,5 +1,6 @@
 from common import *
 
+
 if len(sys.argv) != 3:
   print('Pass ip and port as arguments!')
   print('Example: python client.py 127.0.0.1 5000')
@@ -7,7 +8,8 @@ if len(sys.argv) != 3:
 
 ip, port = sys.argv[1], int(sys.argv[2])
 
-def loop():
+
+def main():
   try:
     while True:
       a = float(input('First number: '))
@@ -26,8 +28,10 @@ def loop():
 
       sock.close()
   except KeyboardInterrupt:
-    print('Bye...')
+    pass
   except Exception as e:
     print(e)
 
-loop()
+
+if __name__ == '__main__':
+  main()
