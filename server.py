@@ -1,47 +1,54 @@
 from common import *
+from threading import Thread, Event
 import os
-import signal
 import psutil
 
 
-def sigchld_handler(num, bruh):
-  os.wait()
+exit_event = Event()
 
-
-# Entrypoint
 
 def main():
-  # Must have ip, port1 and port2
   if len(sys.argv) != 4:
-    print('Pass ip, calc_port and cpu_port as arguments!')
-    print('Example: python server.py 127.0.0.1 5000 5001')
-    return
+    sys.exit('Pass ip and 2 ports')
 
-  # Port1 is for calculator service. Port2 is for the cpu usage service.
   ip, port1, port2 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 
-  # This fixes zombie child processes never terminating
-  signal.signal(signal.SIGCHLD, sigchld_handler)
-
-  # catch KeyboardInterrupt from both services
   try:
-    if os.fork() == 0:  # Child. CPU usage service.
-      cpu_usage(ip, port2)
-    else:  # Parent. Calculator service.
-      calculator(ip, port1)
+    calc = Thread(target=calculator, args=(ip, port1), daemon=True)
+    cpu_usg = Thread(target=cpu_usage, args=(ip, port2), daemon=True)
+
+    calc.start()
+    cpu_usg.start()
+
+    while True:
+      pass
   except KeyboardInterrupt:
     pass
+
+  exit_event.set()
+
+  calc.join()
+  cpu_usg.join()
+
 
 # calculator service
 
 def calculator(ip, port):
-  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  sock = socket.create_server((ip, port))
   sock.settimeout(1)
-  sock.bind((ip, port))
-  sock.listen()
 
-  # This fixes zombie child processes never terminating
-  signal.signal(signal.SIGCHLD, sigchld_handler)
+  def calculator_handler(conn, addr):
+    try:
+      req = recv(conn)
+      print(f'Received {req} from {addr}')
+
+      rsp = calculator_rsp(req)
+      send(conn, rsp)
+      print(f'Sent {rsp} to {addr}')
+    except OSError as e:
+      print(e)
+
+    conn.close()
 
   def calculator_rsp(req):
     rsp = { 'status': 0 }
@@ -55,43 +62,50 @@ def calculator(ip, port):
       rsp['result'] = str(e)
 
     return json.dumps(rsp)
+    
 
-  while True:
-    conn, addr = accept(sock)
-    print(f'Received connection from {addr} to calculate something.')
+  while not exit_event.is_set():
+    # try to accept connections with timeout
+    # so that thread has a chance to terminate
+    conn, addr = None, None
+    try:
+      conn, addr = sock.accept()
+      print(f'{addr} connected to calculator service')
+    except TimeoutError:
+      continue
 
-    if os.fork() == 0:  # Child. Receive request, respond and done.
-      req = recv(conn)
-      print(f'Received {req} from {addr}.')
+    handler = Thread(target=calculator_handler, args=[conn, addr], daemon=True)
+    handler.start()
 
-      rsp = calculator_rsp(req)
-      send(conn, rsp)
-      print(f'Responded {addr} with {rsp}.')
-
-      conn.close()
-      return
+  sock.close()
 
 
 # cpu usage service
 
 def cpu_usage(ip, port):
-  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  sock = socket.create_server((ip, port))
   sock.settimeout(1)
-  sock.bind((ip, port))
-  sock.listen()
 
-  while True:
-    conn, addr = accept(sock)
-    print(f'Received connection from {addr} to get CPU usage.')
+  while not exit_event.is_set():
+    # try to accept connections with timeout
+    # so that thread has a chance to terminate
+    conn, addr = None, None
+    try:
+      conn, addr = sock.accept()
+      print(f'{addr} connected to CPU usage service')
+    except TimeoutError:
+      continue
 
-    if os.fork() == 0:  # Child. Send cpu usage and done.
-      usage = psutil.cpu_percent(interval=None)
-      usage = str(usage)
+    usage = psutil.cpu_percent(interval=None)
+    try:
       send(conn, usage)
-      print(f'Sent {addr} current CPU usage: {usage}%.')
+      print(f'Sent {addr} current CPU usage')
+    except OSError as e:
+      print(e)
 
-      conn.close()
-      return
+    conn.close()
+
+  sock.close()
 
 
 if __name__ == '__main__':

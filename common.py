@@ -11,19 +11,15 @@ def accept(sock):
   while True:
     try:
       return sock.accept()
-    except socket.timeout:
+    except TimeoutError:
       pass
 
 def send(sock, msg):
-  try:
-    msg = msg.encode(ENCODING)
-    return sock.send(msg)
-  except Exception as e:
-    print(e)
+  msg = str(msg)
+  msg = msg.encode(ENCODING)
+  return sock.send(msg)
 
 def recv(sock):
-  try:
-    msg = sock.recv(CHUNK)
-    return msg.decode(ENCODING)
-  except Exception as e:
-    print(e)
+  msg = sock.recv(CHUNK)
+  msg = msg.decode(ENCODING)
+  return msg
