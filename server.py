@@ -7,11 +7,25 @@ import psutil
 exit_event = Event()
 
 
-def main():
+def validate_args():
   if len(sys.argv) != 4:
-    sys.exit('Pass ip and 2 ports')
+    sys.exit('Pass an ip and 2 ports')
 
-  ip, port1, port2 = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+  port1, port2 = sys.argv[2:]
+  try:
+    port1, port2 = int(port1), int(port2)
+  except ValueError:
+    sys.exit('Could not convert ports to integer')
+
+  if port1 == port2:
+    sys.exit('The ports must be different numbers')
+
+  ip = sys.argv[1]
+  return ip, port1, port2
+
+
+def main():
+  ip, port1, port2 = validate_args()
 
   try:
     calc = Thread(target=calculator, args=(ip, port1), daemon=True)
@@ -31,38 +45,54 @@ def main():
   cpu_usg.join()
 
 
+def create_server_socket(ip, port):
+  sock = None
+  try:
+    sock = socket.create_server((ip, port))
+    sock.settimeout(1)
+    sock.listen()
+  except OSError as e:
+    print(e)
+
+  return sock
+
+
 # calculator service
 
+def calculator_respond(req):
+  rsp = { 'status': 0 }
+  try:
+    req = json.loads(req)
+    expr = f'{req["a"]} {req["op"]} {req["b"]}'
+
+    rsp['result'] = eval(expr)
+  except Exception as e:
+    rsp['status'] = 1
+    rsp['result'] = str(e)
+
+  return json.dumps(rsp)
+
+
+def calculator_handler(conn, addr):
+  try:
+    req = recv(conn)
+    print(f'Received {req} from {addr}')
+
+    rsp = calculator_respond(req)
+    send(conn, rsp)
+    print(f'Sent {rsp} to {addr}')
+  except OSError as e:
+    print(e)
+
+  conn.close()
+
+
 def calculator(ip, port):
-  sock = socket.create_server((ip, port))
-  sock.settimeout(1)
+  sock = create_server_socket(ip, port)
+  if sock == None:
+    return
 
-  def calculator_handler(conn, addr):
-    try:
-      req = recv(conn)
-      print(f'Received {req} from {addr}')
-
-      rsp = calculator_rsp(req)
-      send(conn, rsp)
-      print(f'Sent {rsp} to {addr}')
-    except OSError as e:
-      print(e)
-
-    conn.close()
-
-  def calculator_rsp(req):
-    rsp = { 'status': 0 }
-    try:
-      req = json.loads(req)
-      expr = f'{req["a"]} {req["op"]} {req["b"]}'
-
-      rsp['result'] = eval(expr)
-    except Exception as e:
-      rsp['status'] = 1
-      rsp['result'] = str(e)
-
-    return json.dumps(rsp)
-    
+  print('Calculator service started')
 
   while not exit_event.is_set():
     # try to accept connections with timeout
@@ -74,17 +104,21 @@ def calculator(ip, port):
     except TimeoutError:
       continue
 
-    handler = Thread(target=calculator_handler, args=[conn, addr], daemon=True)
+    handler = Thread(target=calculator_handler, args=(conn, addr), daemon=True)
     handler.start()
 
+  print('Calculator service stopped')
   sock.close()
 
 
 # cpu usage service
 
 def cpu_usage(ip, port):
-  sock = socket.create_server((ip, port))
-  sock.settimeout(1)
+  sock = create_server_socket(ip, port)
+  if sock == None:
+    return
+
+  print('CPU usage service started')
 
   while not exit_event.is_set():
     # try to accept connections with timeout
@@ -105,6 +139,7 @@ def cpu_usage(ip, port):
 
     conn.close()
 
+  print('CPU usage service stopped')
   sock.close()
 
 

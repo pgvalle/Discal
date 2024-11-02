@@ -1,15 +1,23 @@
 from common import *
 
 
-if len(sys.argv) != 3:
-  print('Pass ip and port as arguments!')
-  print('Example: python client.py 127.0.0.1 5000')
-  quit()
+def validate_args():
+  if len(sys.argv) != 3:
+    sys.exit('Pass an ip and a port')
 
-ip, port = sys.argv[1], int(sys.argv[2])
+  port = sys.argv[2]
+  try:
+    port = int(port)
+  except ValueError:
+    sys.exit('Could not convert port to number')
+
+  ip = sys.argv[1]
+  return ip, port
 
 
 def main():
+  ip, port = validate_args()
+
   try:
     while True:
       a = float(input('First number: '))
