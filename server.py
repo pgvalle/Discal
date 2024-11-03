@@ -7,40 +7,20 @@ import psutil
 exit_event = Event()
 
 
-def validate_args():
-  if len(sys.argv) != 4:
-    sys.exit('Pass an ip and 2 ports')
-
-  port1, port2 = sys.argv[2:]
-  try:
-    port1, port2 = int(port1), int(port2)
-  except ValueError:
-    sys.exit('Could not convert ports to integer')
-
-  if port1 == port2:
-    sys.exit('The ports must be different numbers')
-
-  ip = sys.argv[1]
-  return ip, port1, port2
-
-
 def main():
-  ip, port1, port2 = validate_args()
+  calc = Thread(target=calculator, daemon=True)
+  calc.start()
+
+  cpuu = Thread(target=cpu_usage, daemon=True)
+  cpuu.start()
 
   try:
-    calc = Thread(target=calculator, args=(ip, port1), daemon=True)
-    cpu_usg = Thread(target=cpu_usage, args=(ip, port2), daemon=True)
-
-    calc.start()
-    cpu_usg.start()
-
     while True:
       pass
   except KeyboardInterrupt:
     pass
 
   exit_event.set()
-
   calc.join()
   cpu_usg.join()
 
@@ -49,7 +29,6 @@ def create_server_socket(ip, port):
   sock = None
   try:
     sock = socket.create_server((ip, port))
-    sock.settimeout(1)
     sock.listen()
   except OSError as e:
     print(e)
@@ -88,7 +67,7 @@ def calculator_handler(conn, addr):
 
 
 def calculator(ip, port):
-  sock = create_server_socket(ip, port)
+  sock = create_server(ip, port)
   if sock == None:
     return
 
@@ -130,8 +109,8 @@ def cpu_usage(ip, port):
     except TimeoutError:
       continue
 
-    usage = psutil.cpu_percent(interval=None)
     try:
+      usage = psutil.cpu_percent(interval=None)
       send(conn, usage)
       print(f'Sent {addr} current CPU usage')
     except OSError as e:
