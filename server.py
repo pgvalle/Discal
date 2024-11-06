@@ -6,8 +6,8 @@ if len(sys.argv) != 4:
   sys.exit('Pass ip, calc_port and cpuu_port')
 
 
-ip, calc_port, cpuu_port = sys.argv[1:]
 exit_event = Event()  # to cleanly exit threads (properly free ports)
+ip, calc_port, cpuu_port = sys.argv[1:]
 
 
 def main():
