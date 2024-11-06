@@ -1,7 +1,6 @@
 import socket
 import json
 import sys
-import datetime
 import time
 
 from threading import Thread, Event

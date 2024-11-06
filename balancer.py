@@ -1,44 +1,48 @@
-from common import *
-
 '''guardar registros de tempos em tempos (na faixa de segundos)
 do uso da cpu em cada servidor. Depois fazer algum cálculo em cima
 desses valores pra decidir qual servidor vai ser usado'''
 
 '''Threads ou Forks para tratar as conexões com os clientes???'''
 from common import *
-from threading import Thread, Event
-import datetime
-import time
 
+
+if len(sys.argv) != 3:
+  sys.exit('Pass ip and port')
+
+
+SERVERS = [
+    ('localhost', 1062, 1536),
+    ('localhost', 1063, 1537) ]
 
 exit_event = Event()
-
-cpuu_hist1 = []
-cpuu_hist2 = []
+ip, port = sys.argv[1:]
+hists = []
 
 
 def main():
+  cpuu_query_ths = []
+
+  for i in range(len(SERVERS)):
+    th = Thread(target=query_cpuu, args=[i], daemon=True)
+    th.start()
+    cpuu_query_ths.append(th)
+    hists.append([])
+
+  listener = Thread(target=listen_to_clients, daemon=True)
+  listener.start()
+
   try:
-    sock = socket.create_server((BALANCER_IP, BALANCER_PORT))
-
-    listener = Thread(target=listen2clients, args=[sock], daemon=True)
-    cpuu1 = Thread(target=query_cpuu1, daemon=True)
-    cpuu2 = Thread(target=query_cpuu2, daemon=True)
-
-    listener.start()
-    cpuu1.start()
-    cpuu2.start()
-
     while True:
       pass
   except KeyboardInterrupt:
-    sock.close()
-    exit_event.set()
-    listener.join()
-    cpuu1.join()
-    cpuu2.join()
-  except OSError as e:
-    print(e)
+    print('bye...')
+
+  exit_event.set()
+
+  for i in range(len(SERVERS)):
+    cpuu_query_ths[i].join()
+  listener.join()
+
 
 
 a = False
@@ -50,74 +54,69 @@ def decide_server():
   return IP2, CALC_PORT2
 
 
-def query_cpuu1():
+def query_cpuu(i):
+  ipi, _, porti = SERVERS[i]
+
   while not exit_event.is_set():
+    start = time.time()
     conn = None
     try:
-      conn = socket.create_connection((IP1, CPUU_PORT1), timeout=1)
-    except OSError as e:
-      print(e)
-      continue
-
-    try:
-      usage = recv(sock)
-
+      conn = socket.create_connection((ipi, porti))
+      usage = recv(conn)
       usage = float(usage)
-      date = datetime.now()
-      cpuu_hist1.append((usage, date))
+      print(f'cpuu {i} query: {usage}%')
+
+      elapsed = time.time()
+      hists[i].append((usage, elapsed))
     except OSError as e:
-      print(e)
+      print(f'cpuu {i} query: error: {e}')
 
-    conn.close()
-    time.sleep(1)
+    if conn:
+      conn.close()
 
-
-def query_cpuu2():
-  while not exit_event.is_set():
-    conn = None
-    try:
-      conn = socket.create_connection((IP2, CPUU_PORT2), timeout=1)
-    except OSError as e:
-      print(e)
-      continue
-
-    try:
-      usage = recv(sock)
-
-      usage = float(usage)
-      date = datetime.now()
-      cpuu_hist2.append((usage, date))
-    except OSError as e:
-      print(e)
-
-    conn.close()
-    time.sleep(1)
+    delta = time.time() - start
+    if delta < 1:
+      time.sleep(1 - delta)
 
 
 def handle_client(conn, addr):
+  conn.close()
+  # sock = None
+  # try:
+  #   ip, port = decide_server()
+  #   sock = socket.create_connection((ip, port))
+  # except OSError as e:
+  #   conn.close()
+  #   print(e)
+  #   return
+  #
+  # try:
+  #   msg = recv(conn)
+  #   send(sock, msg)
+  #   msg = recv(sock)
+  #   send(conn, msg)
+  # except OSError as e:
+  #   print(e)
+  #
+  # sock.close()
+  # conn.close()
+
+
+def listen_to_clients():
   sock = None
   try:
-    ip, port = decide_server()
-    sock = socket.create_connection((ip, port))
-  except OSError as e:
-    conn.close()
-    print(e)
+    global port
+    port = int(port)
+    sock = socket.create_server((ip, port))
+    sock.settimeout(1)
+    sock.listen()
+  except Exception as e:
+    print(f'listener: error: {e}')
+    print('listener: could not start')
     return
 
-  try:
-    msg = recv(conn)
-    send(sock, msg)
-    msg = recv(sock)
-    send(conn, msg)
-  except OSError as e:
-    print(e)
-
-  sock.close()
-  conn.close()
-
-
-def listen2clients(sock):
   while not exit_event.is_set():
+    conn, addr = None, None
     try:
       conn, addr = sock.accept()
     except TimeoutError:

@@ -54,8 +54,8 @@ def calc_conn_handler(conn, addr):
     print(f'calc: {rsp} sent to {addr}')
   except OSError as e:
     print(f'calc: error: {e}')
-  finally:
-    conn.close()
+
+  conn.close()
 
 
 def calc():
@@ -68,7 +68,7 @@ def calc():
     sock.listen()
   except Exception as e:
     print(f'calc: error: {e}')
-    print(f'calc: could not start service')
+    print('calc: could not start service')
     return
 
   print(f'calc: started on port {calc_port}')
@@ -101,7 +101,7 @@ def cpuu():
     sock.listen()
   except Exception as e:
     print(f'cpuu: error: {e}')
-    print(f'cpuu: could not start service')
+    print('cpuu: could not start service')
     return
 
   print(f'cpuu: started on port {cpuu_port}')
@@ -121,8 +121,8 @@ def cpuu():
       print(f'cpuu: sent to {addr}')
     except OSError as e:
       print(f'cpuu: error: {e}')
-    finally:
-      conn.close()
+
+    conn.close()
 
   print('cpuu: stopped')
   sock.close()
