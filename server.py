@@ -1,44 +1,36 @@
 from common import *
-from threading import Thread, Event
-import os
 import psutil
 
 
-exit_event = Event()
+if len(sys.argv) != 4:
+  sys.exit('Pass ip, calc_port and cpuu_port')
+
+
+ip, calc_port, cpuu_port = sys.argv[1:]
+exit_event = Event()  # to cleanly exit threads (properly free ports)
 
 
 def main():
-  calc = Thread(target=calculator, daemon=True)
-  calc.start()
+  calc_th = Thread(target=calc, daemon=True)
+  calc_th.start()
 
-  cpuu = Thread(target=cpu_usage, daemon=True)
-  cpuu.start()
+  cpuu_th = Thread(target=cpuu, daemon=True)
+  cpuu_th.start()
 
   try:
     while True:
       pass
   except KeyboardInterrupt:
-    pass
+    print('bye...')
 
   exit_event.set()
-  calc.join()
-  cpu_usg.join()
-
-
-def create_server_socket(ip, port):
-  sock = None
-  try:
-    sock = socket.create_server((ip, port))
-    sock.listen()
-  except OSError as e:
-    print(e)
-
-  return sock
+  calc_th.join()
+  cpuu_th.join()
 
 
 # calculator service
 
-def calculator_respond(req):
+def calc_rsp(req):
   rsp = { 'status': 0 }
   try:
     req = json.loads(req)
@@ -52,73 +44,87 @@ def calculator_respond(req):
   return json.dumps(rsp)
 
 
-def calculator_handler(conn, addr):
+def calc_conn_handler(conn, addr):
   try:
     req = recv(conn)
-    print(f'Received {req} from {addr}')
+    print(f'calc: {addr} sent {req}')
 
-    rsp = calculator_respond(req)
+    rsp = calc_rsp(req)
     send(conn, rsp)
-    print(f'Sent {rsp} to {addr}')
+    print(f'calc: {rsp} sent to {addr}')
   except OSError as e:
-    print(e)
+    print(f'calc: error: {e}')
+  finally:
+    conn.close()
 
-  conn.close()
 
-
-def calculator(ip, port):
-  sock = create_server(ip, port)
-  if sock == None:
+def calc():
+  sock = None
+  try:
+    global calc_port
+    calc_port = int(calc_port)
+    sock = socket.create_server((ip, calc_port))
+    sock.settimeout(1)
+    sock.listen()
+  except Exception as e:
+    print(f'calc: error: {e}')
+    print(f'calc: could not start service')
     return
 
-  print('Calculator service started')
+  print(f'calc: started on port {calc_port}')
 
   while not exit_event.is_set():
-    # try to accept connections with timeout
-    # so that thread has a chance to terminate
+    # accept connections with timeout so that this thread may terminate
     conn, addr = None, None
     try:
       conn, addr = sock.accept()
-      print(f'{addr} connected to calculator service')
+      print(f'calc: {addr} connected')
     except TimeoutError:
       continue
 
-    handler = Thread(target=calculator_handler, args=(conn, addr), daemon=True)
+    handler = Thread(target=calc_conn_handler, args=(conn, addr), daemon=True)
     handler.start()
 
-  print('Calculator service stopped')
+  print('calc: stopped')
   sock.close()
 
 
 # cpu usage service
 
-def cpu_usage(ip, port):
-  sock = create_server_socket(ip, port)
-  if sock == None:
+def cpuu():
+  sock = None
+  try:
+    global cpuu_port
+    cpuu_port = int(cpuu_port)
+    sock = socket.create_server((ip, cpuu_port))
+    sock.settimeout(1)
+    sock.listen()
+  except Exception as e:
+    print(f'cpuu: error: {e}')
+    print(f'cpuu: could not start service')
     return
 
-  print('CPU usage service started')
+  print(f'cpuu: started on port {cpuu_port}')
 
   while not exit_event.is_set():
-    # try to accept connections with timeout
-    # so that thread has a chance to terminate
+    # accept connections with timeout so that this thread may terminate
     conn, addr = None, None
     try:
       conn, addr = sock.accept()
-      print(f'{addr} connected to CPU usage service')
+      print(f'cpuu: {addr} connected')
     except TimeoutError:
       continue
 
     try:
       usage = psutil.cpu_percent(interval=None)
       send(conn, usage)
-      print(f'Sent {addr} current CPU usage')
+      print(f'cpuu: sent to {addr}')
     except OSError as e:
-      print(e)
+      print(f'cpuu: error: {e}')
+    finally:
+      conn.close()
 
-    conn.close()
-
-  print('CPU usage service stopped')
+  print('cpuu: stopped')
   sock.close()
 
 
