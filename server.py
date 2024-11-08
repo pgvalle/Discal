@@ -2,15 +2,14 @@ from common import *
 import psutil
 
 
-if len(sys.argv) != 4:
-  sys.exit('Pass ip, calc_port and cpuu_port')
-
-
 exit_event = Event()  # to cleanly exit threads (properly free ports)
-ip, calc_port, cpuu_port = sys.argv[1:]
 
 
 def main():
+  if len(sys.argv) != 4:
+    print('Pass ip, calc_port and cpuu_port')
+    return
+
   calc_th = Thread(target=calc, daemon=True)
   calc_th.start()
 
@@ -30,40 +29,51 @@ def main():
 
 # calculator service
 
+VALID_OPERATIONS = ['+', '-', '*', '/', '**']
+
 def calc_rsp(req):
-  rsp = { 'status': 0 }
+  v1, op, v2 = None, None, None
   try:
-    req = json.loads(req)
-    expr = f'{req["a"]} {req["op"]} {req["b"]}'
+    req = json.loads(req)  # JSONDecodeError
+    # KeyError
+    v1 = req['v1']
+    op = req['op']
+    v2 = req['v2']
 
-    rsp['result'] = eval(expr)
+    if not op in VALID_OPERATIONS:
+      return { 'status': 3, 'result': 'invalid operation' }
+
+    v1 = float(v1)  # ValueError or TypeError
+    v2 = float(v2)
+    v2 = float(eval(f'{v1} {op} {v2}'))  # Arithmetic Error
+  except json.JSONDecodeError as e:
+    return { 'status': 2, 'result': str(e) }
+  except KeyError as e:
+    return { 'status': 4, 'result': str(e) }
+  except ArithmeticError as e:
+    return { 'status': 1, 'result': str(e) }
   except Exception as e:
-    rsp['status'] = 1
-    rsp['result'] = str(e)
+    return { 'status': 5, 'result': str(e) }
 
-  return json.dumps(rsp)
+  return { 'status': 0, 'result': v2 }
 
-
-def calc_conn_handler(conn, addr):
+def calc_conn_handler(conn):
   try:
     req = recv(conn)
-    print(f'calc: {addr} sent {req}')
-
     rsp = calc_rsp(req)
+    rsp = json.dumps(rsp)
     send(conn, rsp)
-    print(f'calc: {rsp} sent to {addr}')
+    print(f'calc: {rsp}')
   except OSError as e:
     print(f'calc: error: {e}')
 
   conn.close()
 
-
 def calc():
-  sock = None
+  sock, addr = None, None
   try:
-    global calc_port
-    calc_port = int(calc_port)
-    sock = socket.create_server((ip, calc_port))
+    addr = (sys.argv[1], int(sys.argv[2]))
+    sock = socket.create_server(addr)
     sock.settimeout(1)
     sock.listen()
   except Exception as e:
@@ -71,18 +81,17 @@ def calc():
     print('calc: could not start service')
     return
 
-  print(f'calc: started on port {calc_port}')
+  print(f'calc: started on {addr}')
 
   while not exit_event.is_set():
     # accept connections with timeout so that this thread may terminate
-    conn, addr = None, None
+    conn, caddr = None, None
     try:
-      conn, addr = sock.accept()
-      print(f'calc: {addr} connected')
+      conn, caddr = sock.accept()
     except TimeoutError:
       continue
 
-    handler = Thread(target=calc_conn_handler, args=(conn, addr), daemon=True)
+    handler = Thread(target=calc_conn_handler, args=(conn,), daemon=True)
     handler.start()
 
   print('calc: stopped')
@@ -92,11 +101,10 @@ def calc():
 # cpu usage service
 
 def cpuu():
-  sock = None
+  sock, addr = None, None
   try:
-    global cpuu_port
-    cpuu_port = int(cpuu_port)
-    sock = socket.create_server((ip, cpuu_port))
+    addr = (sys.argv[1], int(sys.argv[3]))
+    sock = socket.create_server(addr)
     sock.settimeout(1)
     sock.listen()
   except Exception as e:
@@ -104,21 +112,20 @@ def cpuu():
     print('cpuu: could not start service')
     return
 
-  print(f'cpuu: started on port {cpuu_port}')
+  print(f'cpuu: started on {addr}')
 
   while not exit_event.is_set():
     # accept connections with timeout so that this thread may terminate
-    conn, addr = None, None
+    conn, caddr = None, None
     try:
-      conn, addr = sock.accept()
-      print(f'cpuu: {addr} connected')
+      conn, caddr = sock.accept()
     except TimeoutError:
       continue
 
     try:
-      usage = psutil.cpu_percent(interval=None)
+      usage = psutil.cpu_percent()
       send(conn, usage)
-      print(f'cpuu: sent to {addr}')
+      print(f'cpuu: {usage}%')
     except OSError as e:
       print(f'cpuu: error: {e}')
 

@@ -1,37 +1,35 @@
 from common import *
 
 
-if len(sys.argv) != 3:
-  sys.exit('Pass ip and port')
-
-
-ip, port = sys.argv[1:]
-
-
 def main():
+  if len(sys.argv) != 3:
+    print('Pass ip and port')
+    return
+
   try:
-    global port
-    port = int(port)
+    addr = (sys.argv[1], int(sys.argv[2]))
 
     while True:
-      a = float(input('a: '))
+      v1 = input('v1: ')
       op = input('op: ')
-      b = float(input('b: '))
+      v2 = input('v2: ')
 
-      sock = socket.create_connection((ip, port))
+      sock = None
+      try:
+        sock = socket.create_connection(addr)
+        req = { 'v1': v1, 'op': op, 'v2': v2 }
+        req = json.dumps(req)
+        send(sock, req)
 
-      req = json.dumps({ 'a': a, 'b': b, 'op': op })
-      send(sock, req)
-
-      rsp = recv(sock)
-      rsp = json.loads(rsp)
-      print('Response:', rsp)
+        rsp = recv(sock)
+        print(f'response: {rsp}')
+      except OSError as e:
+        print(f'error: {e}')
+        continue
 
       sock.close()
   except KeyboardInterrupt:
     print('bye...')
-  except Exception as e:
-    print(f'error: {e}')
 
 
 if __name__ == '__main__':
