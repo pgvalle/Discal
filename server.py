@@ -45,7 +45,10 @@ def calc_rsp(req):
 
     v1 = float(v1)  # ValueError or TypeError
     v2 = float(v2)
-    v2 = float(eval(f'{v1} {op} {v2}'))  # Arithmetic Error
+
+    expr = f'{v1} {op} {v2}'
+    v2 = eval(expr)  # Arithmetic Error
+    print(f'calc: {expr}')
   except json.JSONDecodeError as e:
     return { 'status': 2, 'result': str(e) }
   except KeyError as e:
