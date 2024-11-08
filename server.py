@@ -29,8 +29,6 @@ def main():
 
 # calculator service
 
-VALID_OPERATIONS = ['+', '-', '*', '/', '**']
-
 def calc_rsp(req):
   v1, op, v2 = None, None, None
   try:

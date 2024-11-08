@@ -12,7 +12,7 @@ def main():
 
     while True:
       v1 = random.randint(0, 100)
-      op = random.choice(['+', '-', '*', '/', '**'])
+      op = random.choice(VALID_OPERATIONS)
       v2 = random.randint(0, 100)
 
       sock = None
