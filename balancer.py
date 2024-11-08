@@ -15,25 +15,17 @@ def decide_server():
   global servers_cpuu, rrl, rri
 
   avg_cpuu = sum(servers_cpuu) / len(servers_cpuu)
-  cpuu_deviations = map(lambda x: x - avg, servers_cpuu)
+  cpuu_deviations = list(map(lambda x: x - avg_cpuu, servers_cpuu))
 
-  removed = False
   for i in range(len(SERVERS)):
-    if not removed:
-      removed = rrl[i] is True and cpuu_deviations[i] >= 5
-
     # temporarily remove server i from round robin list based on cpuu deviation
-    rrl[i] = False cpuu_deviations[i] >= 5 else True
-
-  # the server with lowest cpu usage will be the chosen one in rr
-  # if we have removed any server from round robin list this time
-  min_cpuu_deviation = min(cpuu_deviations)
-  if removed:
-    rri = cpuu_deviations.index(min_cpuu_deviation)
+    rrl[i] = False if cpuu_deviations[i] >= 5 else True
 
   ip, calc_port, _ = SERVERS[rri]
 
-  while rrl[rri] == False:
+  rri += 1
+  rri %= len(rrl)
+  while not rrl[rri]:
     rri += 1
     rri %= len(rrl)
 
@@ -51,10 +43,10 @@ def main():
     query_cpuu_th = Thread(target=query_cpuu, args=(i,), daemon=True)
     query_cpuu_th.start()
 
-    query_cpuu_ths.append(cpuu_query_th)
+    query_cpuu_ths.append(query_cpuu_th)
     servers_cpuu.append(0)
     rrl.append(True)
-    time.sleep(0.25)
+    time.sleep(1)
 
   listener_th = Thread(target=listen_to_clients, daemon=True)
   listener_th.start()
@@ -90,6 +82,7 @@ def query_cpuu(i):
 
       servers_cpuu[i] = usage
     except OSError as e:
+      servers_cpuu[i] = 1e10  # force server to be removed from rr
       print(f'cpuu querier {i}: error: {e}')
 
     if conn:

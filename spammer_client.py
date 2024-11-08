@@ -1,4 +1,5 @@
 from common import *
+import random
 
 
 def main():
@@ -10,9 +11,9 @@ def main():
     addr = (sys.argv[1], int(sys.argv[2]))
 
     while True:
-      v1 = input('v1: ')
-      op = input('op: ')
-      v2 = input('v2: ')
+      v1 = random.randint(0, 100)
+      op = random.choice(['+', '-', '*', '/', '**'])
+      v2 = random.randint(0, 100)
 
       sock = None
       try:
@@ -26,7 +27,7 @@ def main():
       except OSError as e:
         print(f'error: {e}')
         continue
-     
+      
       if sock:
         sock.close()
   except KeyboardInterrupt:
