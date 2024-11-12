@@ -65,7 +65,6 @@ def calc_conn_handler(conn):
     rsp = calc_rsp(req)
     rsp = json.dumps(rsp)
     send(conn, rsp)
-    print(f'calc: {rsp}')
   except OSError as e:
     print(f'calc: error: {e}')
 
@@ -129,7 +128,6 @@ def cpuu():
     try:
       usage = psutil.cpu_percent()
       send(conn, usage)
-      print(f'cpuu: {usage}%')
     except OSError as e:
       print(f'cpuu: error: {e}')
 

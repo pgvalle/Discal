@@ -1,15 +1,10 @@
 from common import *
-import random
-import signal
-import os
-import math
-import psutil
 
 
 def main():
   if len(sys.argv) < 3:
-    print('Pass ip and port.')
-    print('Optionally pass the number of spammers (default=CPUs).')
+    print('Pass ip and connection port')
+    print('Optionally pass the number of spammers (default=CPUs)')
     return
 
   num_procs = psutil.cpu_count()
@@ -47,7 +42,6 @@ def spam(i):
         send(sock, req)
 
         rsp = recv(sock)
-        print(f'spammer {i}: {rsp}')
       except OSError as e:
         print(f'spammer {i}: error: {e}')
       

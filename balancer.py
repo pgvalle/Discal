@@ -1,12 +1,5 @@
 from common import *
-import concurrent.futures as cf
 
-
-SERVERS = [
-    ('localhost', 1062, 1536),
-    ('localhost', 1063, 1537) ]
-
-CPUU_QUERY_INTERVAL = len(SERVERS)  # seconds
 
 exit_event = Event()
 servers_cpuu = []
@@ -29,7 +22,7 @@ def main():
     servers_cpuu.append(0)
     rrl.append(True)
 
-    time.sleep(1)
+    time.sleep(0.25)
 
   listener_th = Thread(target=listen_to_clients, daemon=True)
   listener_th.start()
@@ -90,8 +83,8 @@ def cpuu(i):
       conn.close()
 
     delta = time.time() - start
-    if delta < CPUU_QUERY_INTERVAL:
-      time.sleep(CPUU_QUERY_INTERVAL - delta)
+    if delta < CPUU_INTERVAL:
+      time.sleep(CPUU_INTERVAL - delta)
 
 
 def handle_client(conn):

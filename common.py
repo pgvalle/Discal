@@ -2,8 +2,22 @@ import socket
 import json
 import sys
 import time
+import random
+import signal
+import os
+import math
+import psutil
+import concurrent.futures as cf
 from threading import Thread, Event
 
+
+SERVERS = [
+    ('localhost', 1062, 1536),
+    #('localhost', 1064, 1538),
+    #('localhost', 1065, 1539),
+    ('localhost', 1063, 1537) ]
+
+CPUU_INTERVAL = len(SERVERS)  # seconds
 
 VALID_OPERATIONS = ['+', '-', '*', '/', '**', '%']
 
