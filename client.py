@@ -2,7 +2,7 @@ from common import *
 
 
 def main():
-  if len(sys.argv) != 3:
+  if len(sys.argv) < 3:
     print('Pass ip and port')
     return
 

@@ -5,35 +5,16 @@ SERVERS = [
     ('localhost', 1062, 1536),
     ('localhost', 1063, 1537) ]
 
+CPUU_QUERY_INTERVAL = len(SERVERS)  # seconds
+
 exit_event = Event()
 servers_cpuu = []
 rrl = []  # round robin list
 rri = 0  # round robing index
 
 
-def decide_server():
-  global servers_cpuu, rrl, rri
-
-  avg_cpuu = sum(servers_cpuu) / len(servers_cpuu)
-  cpuu_deviations = list(map(lambda x: x - avg_cpuu, servers_cpuu))
-
-  for i in range(len(SERVERS)):
-    # temporarily remove server i from round robin list based on cpuu deviation
-    rrl[i] = False if cpuu_deviations[i] >= 5 else True
-
-  ip, calc_port, _ = SERVERS[rri]
-
-  rri += 1
-  rri %= len(rrl)
-  while not rrl[rri]:
-    rri += 1
-    rri %= len(rrl)
-
-  return ip, calc_port
-
-
 def main():
-  if len(sys.argv) != 3:
+  if len(sys.argv) < 3:
     print('Pass ip and port')
     return
 
@@ -64,9 +45,27 @@ def main():
   listener_th.join()
 
 
-# cpuu querier
+def decide_server():
+  global servers_cpuu, rrl, rri
 
-CPUU_QUERY_INTERVAL = len(SERVERS)  # seconds
+  avg_cpuu = sum(servers_cpuu) / len(servers_cpuu)
+  cpuu_deviations = list(map(lambda x: x - avg_cpuu, servers_cpuu))
+
+  for i in range(len(SERVERS)):
+    rrl[i] = cpuu_deviations[i] < 5
+
+  ip, calc_port, _ = SERVERS[rri]
+
+  rri += 1
+  rri %= len(rrl)
+  while not rrl[rri]:
+    rri += 1
+    rri %= len(rrl)
+
+  return ip, calc_port
+
+
+# cpuu querier
 
 def query_cpuu(i):
   ip, _, port = SERVERS[i]
