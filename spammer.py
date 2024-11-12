@@ -7,11 +7,11 @@ import math
 
 def main():
   if len(sys.argv) < 3:
-    print('Pass ip, and port.')
-    print('Optionally, pass the number of spammer procs (default=5).')
+    print('Pass ip and port.')
+    print('Optionally pass the number of spammers (default=CPUs).')
     return
 
-  num_childs = 4
+  num_childs = psutil.cpu_count() - 1
   try:
     num_childs = int(sys.argv[3]) - 1
   except:
@@ -49,7 +49,6 @@ def spam(i):
         print(f'response: {rsp}')
       except OSError as e:
         print(f'error: {e}')
-        continue
       
       if sock:
         sock.close()

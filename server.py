@@ -7,7 +7,7 @@ exit_event = Event()  # to cleanly exit threads (properly free ports)
 
 def main():
   if len(sys.argv) < 4:
-    print('Pass ip, calc_port and cpuu_port')
+    print('Pass ip, calc port and cpuu port')
     return
 
   calc_th = Thread(target=calc, daemon=True)

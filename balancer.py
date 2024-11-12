@@ -15,7 +15,7 @@ rri = 0  # round robing index
 
 def main():
   if len(sys.argv) < 3:
-    print('Pass ip and port')
+    print('Pass ip and listening port')
     return
 
   query_cpuu_ths = []

@@ -3,7 +3,7 @@ from common import *
 
 def main():
   if len(sys.argv) < 3:
-    print('Pass ip and port')
+    print('Pass ip and connection port')
     return
 
   try:
@@ -25,7 +25,6 @@ def main():
         print(f'response: {rsp}')
       except OSError as e:
         print(f'error: {e}')
-        continue
      
       if sock:
         sock.close()
