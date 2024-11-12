@@ -47,7 +47,7 @@ def spam(i):
         send(sock, req)
 
         rsp = recv(sock)
-        print(f'response: {rsp}')
+        print(f'spammer {i}: {rsp}')
       except OSError as e:
         print(f'spammer {i}: error: {e}')
       

@@ -1,4 +1,5 @@
 from common import *
+import concurrent.futures as cf
 
 
 SERVERS = [
@@ -18,30 +19,31 @@ def main():
     print('Pass ip and listening port')
     return
 
-  query_cpuu_ths = []
+  cpuu_ths = []
 
   for i in range(len(SERVERS)):
-    query_cpuu_th = Thread(target=query_cpuu, args=(i,), daemon=True)
-    query_cpuu_th.start()
+    cpuu_th = Thread(target=cpuu, args=[i], daemon=True)
+    cpuu_th.start()
 
-    query_cpuu_ths.append(query_cpuu_th)
+    cpuu_ths.append(cpuu_th)
     servers_cpuu.append(0)
     rrl.append(True)
+
     time.sleep(1)
 
   listener_th = Thread(target=listen_to_clients, daemon=True)
   listener_th.start()
 
   try:
-    while True:
+    while not exit_event.is_set():
       pass
   except KeyboardInterrupt:
     print('bye...')
 
   exit_event.set()
 
-  for query_cpuu_th in query_cpuu_ths:
-    query_cpuu_th.join()
+  for cpuu_th in cpuu_ths:
+    cpuu_th.join()
   listener_th.join()
 
 
@@ -67,7 +69,7 @@ def decide_server():
 
 # cpuu querier
 
-def query_cpuu(i):
+def cpuu(i):
   ip, _, port = SERVERS[i]
 
   while not exit_event.is_set():
@@ -124,19 +126,23 @@ def listen_to_clients():
   except Exception as e:
     print(f'listener: error: {e}')
     print('listener: could not start')
+    exit_event.set()
     return
 
   print(f'listener: started on {addr}')
 
-  while not exit_event.is_set():
-    conn, caddr = None, None
-    try:
-      conn, caddr = sock.accept()
-    except TimeoutError:
-      continue
+  with cf.ThreadPoolExecutor(max_workers=10) as tpe:
+    while not exit_event.is_set():
+      conn, caddr = None, None
+      try:
+        conn, caddr = sock.accept()
+      except TimeoutError:
+        continue
+      
+      tpe.submit(handle_client, conn)
 
-    handler = Thread(target=handle_client, args=(conn,), daemon=True)
-    handler.start()
+    print('listener: stopped')
+    sock.close()
 
 
 if __name__ == '__main__':

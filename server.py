@@ -1,5 +1,6 @@
 from common import *
 import psutil
+import concurrent.futures as cf
 
 
 exit_event = Event()  # to cleanly exit threads (properly free ports)
@@ -17,7 +18,7 @@ def main():
   cpuu_th.start()
 
   try:
-    while True:
+    while not exit_event.is_set():
       pass
   except KeyboardInterrupt:
     print('bye...')
@@ -80,23 +81,25 @@ def calc():
   except Exception as e:
     print(f'calc: error: {e}')
     print('calc: could not start service')
+    exit_event.set()
     return
 
   print(f'calc: started on {addr}')
 
-  while not exit_event.is_set():
-    # accept connections with timeout so that this thread may terminate
-    conn, caddr = None, None
-    try:
-      conn, caddr = sock.accept()
-    except TimeoutError:
-      continue
+  with cf.ThreadPoolExecutor(max_workers=10) as tpe:
+    while not exit_event.is_set():
+      # accept connections with timeout so that this thread may terminate
+      conn, caddr = None, None
+      try:
+        conn, caddr = sock.accept()
+      except TimeoutError:
+        continue
 
-    handler = Thread(target=calc_conn_handler, args=(conn,), daemon=True)
-    handler.start()
+      tpe.submit(calc_conn_handler, conn)
 
-  print('calc: stopped')
-  sock.close()
+    print('calc: stopped')
+    tpe.shutdown()
+    sock.close()
 
 
 # cpu usage service
