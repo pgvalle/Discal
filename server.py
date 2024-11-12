@@ -1,6 +1,5 @@
 from common import *
 import psutil
-import concurrent.futures as cf
 
 
 exit_event = Event()  # to cleanly exit threads (properly free ports)
@@ -71,34 +70,34 @@ def calc_conn_handler(conn):
   conn.close()
 
 def calc():
-  sock, addr = None, None
-  try:
-    addr = (sys.argv[1], int(sys.argv[2]))
-    sock = socket.create_server(addr)
-    sock.settimeout(1)
-    sock.listen()
-  except Exception as e:
-    print(f'calc: error: {e}')
-    print('calc: could not start service')
-    exit_event.set()
-    return
+    sock, addr = None, None
+    try:
+        addr = (sys.argv[1], int(sys.argv[2]))
+        sock = socket.create_server(addr)
+        sock.settimeout(1)
+        sock.listen()
+    except Exception as e:
+        print(f'calc: error: {e}')
+        print('calc: could not start service')
+        exit_event.set()
+        return
 
-  print(f'calc: started on {addr}')
+    print(f'calc: started on {addr}')
 
-  with cf.ThreadPoolExecutor(max_workers=10) as tpe:
-    while not exit_event.is_set():
-      # accept connections with timeout so that this thread may terminate
-      conn, caddr = None, None
-      try:
-        conn, caddr = sock.accept()
-      except TimeoutError:
-        continue
+    with cf.ThreadPoolExecutor(max_workers=10) as tpe:
+      while not exit_event.is_set():
+        # accept connections with timeout so that this thread may terminate
+        conn, caddr = None, None
+        try:
+          conn, caddr = sock.accept()
+        except TimeoutError:
+          continue
 
-      tpe.submit(calc_conn_handler, conn)
+        tpe.submit(calc_conn_handler, conn)
 
-    print('calc: stopped')
-    tpe.shutdown()
-    sock.close()
+      print('calc: stopped')
+      tpe.shutdown()
+      sock.close()
 
 
 # cpu usage service

@@ -22,7 +22,8 @@ def main():
         send(sock, req)
 
         rsp = recv(sock)
-        print(f'response: {rsp}')
+        result = rsp['result']
+        print(f'result: {result}')
       except OSError as e:
         print(f'error: {e}')
      
