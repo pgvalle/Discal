@@ -3,6 +3,7 @@ import random
 import signal
 import os
 import math
+import psutil
 
 
 def main():
@@ -11,20 +12,20 @@ def main():
     print('Optionally pass the number of spammers (default=CPUs).')
     return
 
-  num_childs = psutil.cpu_count() - 1
+  num_procs = psutil.cpu_count()
   try:
-    num_childs = int(sys.argv[3]) - 1
+    num_procs = int(sys.argv[3])
   except:
     pass
 
-  while num_childs > 0:
+  while num_procs > 1:
     pid = os.fork()
     if pid == 0:
       break
     else:
-      num_childs -= 1
+      num_procs -= 1
 
-  spam(num_childs)
+  spam(num_procs)
 
 
 def spam(i):
@@ -40,7 +41,7 @@ def spam(i):
 
       sock = None
       try:
-        sock = socket.create_connection(addr)
+        sock = socket.create_connection(addr, timeout=1)
         req = { 'v1': v1, 'op': op, 'v2': v2 }
         req = json.dumps(req)
         send(sock, req)
@@ -48,14 +49,14 @@ def spam(i):
         rsp = recv(sock)
         print(f'response: {rsp}')
       except OSError as e:
-        print(f'error: {e}')
+        print(f'spammer {i}: error: {e}')
       
       if sock:
         sock.close()
   except KeyboardInterrupt:
     print(f'spammer {i}: bye...')
   except Exception as e:
-    print(e)
+    print(f'spammer {i}: error: {e}')
 
 
 if __name__ == '__main__':
