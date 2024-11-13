@@ -6,135 +6,132 @@ exit_event = Event()  # to cleanly exit threads (properly free ports)
 
 
 def main():
-  if len(sys.argv) < 4:
-    print('Pass ip, calc port and cpuu port')
-    return
+    if len(sys.argv) < 4:
+        print('Pass ip, calc port and cpuu port')
+        return
 
-  calc_th = Thread(target=calc, daemon=True)
-  calc_th.start()
+    calc_th = Thread(target=calc, daemon=True)
+    calc_th.start()
 
-  cpuu_th = Thread(target=cpuu, daemon=True)
-  cpuu_th.start()
+    cpuu_th = Thread(target=cpuu, daemon=True)
+    cpuu_th.start()
 
-  try:
-    while not exit_event.is_set():
-      pass
-  except KeyboardInterrupt:
-    print('bye...')
+    try:
+        while not exit_event.is_set():
+            pass
+    except KeyboardInterrupt:
+        print('bye...')
 
-  exit_event.set()
-  calc_th.join()
-  cpuu_th.join()
+    exit_event.set()
+    calc_th.join()
+    cpuu_th.join()
 
 
 # calculator service
 
 def calc_rsp(req):
-  v1, op, v2 = None, None, None
-  try:
-    req = json.loads(req)  # JSONDecodeError
-    # KeyError
-    v1 = req['v1']
-    op = req['op']
-    v2 = req['v2']
+    try:
+        req = json.loads(req)  # JSONDecodeError
 
-    if not op in VALID_OPERATIONS:
-      return { 'status': 3, 'result': 'invalid operation' }
+        # KeyError, ValueError or TypeError
+        v1 = float(req['v1'])
+        v2 = float(req['v2'])
+        op = req['op']
 
-    v1 = float(v1)  # ValueError or TypeError
-    v2 = float(v2)
+        if not op in VALID_OPERATIONS:
+          return { 'status': 3, 'result': 'invalid operation' }
 
-    expr = f'{v1} {op} {v2}'
-    v2 = eval(expr)  # Arithmetic Error
-    print(f'calc: {expr}')
-  except json.JSONDecodeError as e:
-    return { 'status': 2, 'result': str(e) }
-  except KeyError as e:
-    return { 'status': 4, 'result': str(e) }
-  except ArithmeticError as e:
-    return { 'status': 1, 'result': str(e) }
-  except Exception as e:
-    return { 'status': 5, 'result': str(e) }
+        expr = f'{v1} {op} {v2}'
+        result = eval(expr)  # Arithmetic Error
+        print(f'calc: {expr}')
 
-  return { 'status': 0, 'result': v2 }
+        return { 'status': 0, 'result': result }
+    except json.JSONDecodeError as e:
+        return { 'status': 1, 'result': str(e) }
+    except KeyError as e:
+        return { 'status': 2, 'result': str(e) }
+    except ArithmeticError as e:
+        return { 'status': 4, 'result': str(e) }
+    except Exception as e:  # Unknown error
+        return { 'status': 5, 'result': str(e) }
+
 
 def calc_conn_handler(conn):
-  try:
-    req = recv(conn)
-    rsp = calc_rsp(req)
-    rsp = json.dumps(rsp)
-    send(conn, rsp)
-  except OSError as e:
-    print(f'calc: error: {e}')
+    try:
+        req = recv(conn)
+        rsp = calc_rsp(req)
+        rsp = json.dumps(rsp)
+        send(conn, rsp)
+    except OSError as e:
+        print(f'calc: error: {e}')
 
-  conn.close()
+    conn.close()
 
 def calc():
     sock, addr = None, None
     try:
         addr = (sys.argv[1], int(sys.argv[2]))
         sock = socket.create_server(addr)
-        sock.settimeout(1)
-        sock.listen()
     except Exception as e:
         print(f'calc: error: {e}')
         print('calc: could not start service')
-        exit_event.set()
+        exit_event.set()  # if the main service can't start, just quit the program
         return
 
+    sock.settimeout(1)
+    sock.listen()
     print(f'calc: started on {addr}')
 
     with cf.ThreadPoolExecutor(max_workers=10) as tpe:
-      while not exit_event.is_set():
-        # accept connections with timeout so that this thread may terminate
-        conn, caddr = None, None
-        try:
-          conn, caddr = sock.accept()
-        except TimeoutError:
-          continue
+        while not exit_event.is_set():
+            # accept connections with timeout so that this thread may terminate
+            conn, caddr = None, None
+            try:
+                conn, caddr = sock.accept()
+            except TimeoutError:
+                continue
 
-        tpe.submit(calc_conn_handler, conn)
+            tpe.submit(calc_conn_handler, conn)
 
-      print('calc: stopped')
-      tpe.shutdown()
-      sock.close()
+        sock.close()
+        print('calc: stopped')
 
 
 # cpu usage service
 
 def cpuu():
-  sock, addr = None, None
-  try:
-    addr = (sys.argv[1], int(sys.argv[3]))
-    sock = socket.create_server(addr)
+    sock, addr = None, None
+    try:
+        addr = (sys.argv[1], int(sys.argv[3]))
+        sock = socket.create_server(addr)
+    except Exception as e:
+        print(f'cpuu: error: {e}')
+        print('cpuu: could not start service')
+        return
+
     sock.settimeout(1)
     sock.listen()
-  except Exception as e:
-    print(f'cpuu: error: {e}')
-    print('cpuu: could not start service')
-    return
+    print(f'cpuu: started on {addr}')
 
-  print(f'cpuu: started on {addr}')
+    while not exit_event.is_set():
+        # accept connections with timeout so that this thread may terminate
+        conn, caddr = None, None
+        try:
+            conn, caddr = sock.accept()
+        except TimeoutError:
+            continue
 
-  while not exit_event.is_set():
-    # accept connections with timeout so that this thread may terminate
-    conn, caddr = None, None
-    try:
-      conn, caddr = sock.accept()
-    except TimeoutError:
-      continue
+        try:
+            usage = psutil.cpu_percent()
+            send(conn, usage)
+        except OSError as e:
+            print(f'cpuu: error: {e}')
 
-    try:
-      usage = psutil.cpu_percent()
-      send(conn, usage)
-    except OSError as e:
-      print(f'cpuu: error: {e}')
+        conn.close()
 
-    conn.close()
-
-  print('cpuu: stopped')
-  sock.close()
+    sock.close()
+    print('cpuu: stopped')
 
 
 if __name__ == '__main__':
-  main()
+    main()

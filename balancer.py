@@ -8,135 +8,131 @@ rri = 0  # round robing index
 
 
 def main():
-  if len(sys.argv) < 3:
-    print('Pass ip and listening port')
-    return
+    if len(sys.argv) < 3:
+        print('Pass ip and listening port')
+        return
 
-  cpuu_ths = []
+    cpuu_ths = []
 
-  for i in range(len(SERVERS)):
-    cpuu_th = Thread(target=cpuu, args=[i], daemon=True)
-    cpuu_th.start()
+    for i in range(len(SERVERS)):
+        cpuu_th = Thread(target=cpuu, args=[i], daemon=True)
+        cpuu_th.start()
 
-    cpuu_ths.append(cpuu_th)
-    servers_cpuu.append(0)
-    rrl.append(True)
+        cpuu_ths.append(cpuu_th)
+        servers_cpuu.append(0)
+        rrl.append(True)
 
-    time.sleep(0.25)
+        time.sleep(0.25)
 
-  listener_th = Thread(target=listen_to_clients, daemon=True)
-  listener_th.start()
+    listener_th = Thread(target=listen_to_clients, daemon=True)
+    listener_th.start()
 
-  try:
-    while not exit_event.is_set():
-      pass
-  except KeyboardInterrupt:
-    print('bye...')
+    try:
+        while not exit_event.is_set():
+            pass
+    except KeyboardInterrupt:
+        print('bye...')
 
-  exit_event.set()
+    exit_event.set()
 
-  for cpuu_th in cpuu_ths:
-    cpuu_th.join()
-  listener_th.join()
+    for cpuu_th in cpuu_ths:
+        cpuu_th.join()
+    listener_th.join()
 
 
 def decide_server():
-  global servers_cpuu, rrl, rri
+    global servers_cpuu, rrl, rri
 
-  avg_cpuu = sum(servers_cpuu) / len(servers_cpuu)
-  cpuu_deviations = list(map(lambda x: x - avg_cpuu, servers_cpuu))
+    avg_cpuu = sum(servers_cpuu) / len(servers_cpuu)
+    cpuu_deviations = list(map(lambda x: x - avg_cpuu, servers_cpuu))
 
-  for i in range(len(SERVERS)):
-    rrl[i] = cpuu_deviations[i] < 5
+    for i in range(len(SERVERS)):
+        rrl[i] = cpuu_deviations[i] < 5
 
-  ip, calc_port, _ = SERVERS[rri]
+    ip, calc_port, _ = SERVERS[rri]
 
-  rri += 1
-  rri %= len(rrl)
-  while not rrl[rri]:
     rri += 1
     rri %= len(rrl)
+    while not rrl[rri]:
+        rri += 1
+        rri %= len(rrl)
 
-  return ip, calc_port
+    return ip, calc_port
 
 
 # cpuu querier
 
 def cpuu(i):
-  ip, _, port = SERVERS[i]
+    ip, _, port = SERVERS[i]
 
-  while not exit_event.is_set():
-    start = time.time()
-    conn = None
+    while not exit_event.is_set():
+        start = time.time()
+        sconn = None  # server connection
+        try:
+            sconn = socket.create_connection((ip, port), timeout=1)
+            usage = recv(sconn)
+            usage = float(usage)
+            print(f'cpuu querier {i}: {usage}%')
+
+            servers_cpuu[i] = usage
+        except OSError as e:
+            servers_cpuu[i] = 1e10  # force server to be removed from rr
+            print(f'cpuu querier {i}: error: {e}')
+
+        if sconn:
+            sconn.close()
+
+        delta = time.time() - start
+        if delta < CPUU_INTERVAL:
+            time.sleep(CPUU_INTERVAL - delta)
+
+
+def handle_client(cconn):
+    sconn = None
     try:
-      conn = socket.create_connection((ip, port), timeout=1)
-      usage = recv(conn)
-      usage = float(usage)
-      print(f'cpuu querier {i}: {usage}%')
+        addr = decide_server()
+        sconn = socket.create_connection(addr)
 
-      servers_cpuu[i] = usage
+        msg = recv(cconn)
+        send(sconn, msg)
+        msg = recv(sconn)
+        send(cconn, msg)
     except OSError as e:
-      servers_cpuu[i] = 1e10  # force server to be removed from rr
-      print(f'cpuu querier {i}: error: {e}')
+        print(f'handler: error: {e}')
 
-    if conn:
-      conn.close()
-
-    delta = time.time() - start
-    if delta < CPUU_INTERVAL:
-      time.sleep(CPUU_INTERVAL - delta)
-
-
-def handle_client(conn):
-  sock = None
-  try:
-    addr = decide_server()
-    sock = socket.create_connection(addr)
-  except OSError as e:
-    print(f'handler: error: {e}')
-    conn.close()
-    return
-
-  try:
-    msg = recv(conn)
-    send(sock, msg)
-    msg = recv(sock)
-    send(conn, msg)
-  except OSError as e:
-    print(f'handler: error: {e}')
-
-  sock.close()
-  conn.close()
+    if sconn:
+        sconn.close()
+    cconn.close()
 
 
 def listen_to_clients():
-  sock, addr = None, None
-  try:
-    addr = (sys.argv[1], int(sys.argv[2]))
-    sock = socket.create_server(addr)
+    sock, addr = None, None
+    try:
+        addr = (sys.argv[1], int(sys.argv[2]))
+        sock = socket.create_server(addr)
+    except Exception as e:
+        print(f'listener: error: {e}')
+        print('listener: could not start')
+        exit_event.set()  # main service can't start, then exit program
+        return
+
     sock.settimeout(1)
     sock.listen()
-  except Exception as e:
-    print(f'listener: error: {e}')
-    print('listener: could not start')
-    exit_event.set()
-    return
+    print(f'listener: started on {addr}')
 
-  print(f'listener: started on {addr}')
+    with cf.ThreadPoolExecutor(max_workers=10) as tpe:
+        while not exit_event.is_set():
+            cconn, caddr = None, None  # client connection and address
+            try:
+                cconn, caddr = sock.accept()
+            except TimeoutError:
+                continue
+            
+            tpe.submit(handle_client, cconn)
 
-  with cf.ThreadPoolExecutor(max_workers=10) as tpe:
-    while not exit_event.is_set():
-      conn, caddr = None, None
-      try:
-        conn, caddr = sock.accept()
-      except TimeoutError:
-        continue
-      
-      tpe.submit(handle_client, conn)
-
-    print('listener: stopped')
-    sock.close()
+        sock.close()
+        print('listener: stopped')
 
 
 if __name__ == '__main__':
-  main()
+    main()

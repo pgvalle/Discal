@@ -6,7 +6,6 @@ import random
 import signal
 import os
 import math
-import psutil
 import concurrent.futures as cf
 from threading import Thread, Event
 
@@ -26,11 +25,11 @@ ENCODING = 'utf-8'
 
 
 def send(sock, msg):
-  msg = str(msg)
-  msg = msg.encode(ENCODING)
-  return sock.send(msg)
+    msg = str(msg)
+    msg = msg.encode(ENCODING)
+    return sock.send(msg)
 
 def recv(sock):
-  msg = sock.recv(CHUNK)
-  msg = msg.decode(ENCODING)
-  return msg
+    msg = sock.recv(CHUNK)
+    msg = msg.decode(ENCODING)
+    return msg
