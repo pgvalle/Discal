@@ -30,6 +30,11 @@ def main():
 # calculator service
 
 def calc_rsp(req):
+    def e2n(e):
+        chars = list(str(e))
+        ords = map(lambda c: ord(c), chars)
+        return sum(ords)
+
     try:
         req = json.loads(req)  # JSONDecodeError
 
@@ -39,22 +44,17 @@ def calc_rsp(req):
         op = req['op']
 
         if not op in VALID_OPERATIONS:
-          return { 'status': 3, 'result': 'invalid operation' }
+          return { 'status': 1, 'result': 'invalid operation' }
 
         expr = f'{v1} {op} {v2}'
-        result = eval(expr)  # Arithmetic Error
         print(f'calc: {expr}')
 
-        return { 'status': 0, 'result': result }
-    except json.JSONDecodeError as e:
-        return { 'status': 1, 'result': str(e) }
-    except KeyError as e:
-        return { 'status': 2, 'result': str(e) }
-    except ArithmeticError as e:
-        return { 'status': 4, 'result': str(e) }
+        return { 'status': 0, 'result': eval(expr) }
     except Exception as e:  # Unknown error
-        return { 'status': 5, 'result': str(e) }
+        errcode = e2n(e)
+        print(f'calc: error {errcode}: {e}')
 
+        return { 'status': errcode, 'result': str(e) }
 
 def calc_conn_handler(conn):
     try:
