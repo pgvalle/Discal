@@ -1,6 +1,14 @@
 from common import *
 
 
+SERVERS = [
+    ('localhost', 1062, 1536),
+    #('localhost', 1064, 1538),
+    #('localhost', 1065, 1539),
+    ('localhost', 1063, 1537) ]
+
+CPUU_INTERVAL = len(SERVERS)  # seconds
+
 exit_event = Event()
 servers_cpuu = []
 rrl = []  # round robin list
@@ -63,24 +71,24 @@ def decide_server():
 # cpuu querier
 
 def cpuu(i):
-    ip, _, port = SERVERS[i]
+    host, _, port = SERVERS[i]
 
     while not exit_event.is_set():
         start = time.time()
-        sconn = None  # server connection
+        cconn = None  # server connection
         try:
-            sconn = socket.create_connection((ip, port), timeout=1)
-            usage = recv(sconn)
+            cconn = socket.create_connection((host, port), timeout=1)
+            usage = recv(cconn)
             usage = float(usage)
-            print(f'cpuu querier {i}: {usage}%')
+            print(f'{host}:{port} is using {usage}% of cpu')
 
             servers_cpuu[i] = usage
         except OSError as e:
-            servers_cpuu[i] = 1e10  # force server to be removed from rr
-            print(f'cpuu querier {i}: error: {e}')
+            servers_cpuu[i] = None  # force server to be removed from rr
+            print(f'{host}:{port} : {e}')
 
-        if sconn:
-            sconn.close()
+        if cconn:
+            cconn.close()
 
         delta = time.time() - start
         if delta < CPUU_INTERVAL:
@@ -98,7 +106,7 @@ def handle_client(cconn):
         msg = recv(sconn)
         send(cconn, msg)
     except OSError as e:
-        print(f'handler: error: {e}')
+        print(f'client handler: error: {e}')
 
     if sconn:
         sconn.close()
@@ -106,19 +114,20 @@ def handle_client(cconn):
 
 
 def listen_to_clients():
-    sock, addr = None, None
+    sock = None
+    host, port = None, None
     try:
-        addr = (sys.argv[1], int(sys.argv[2]))
-        sock = socket.create_server(addr)
+        host, port = sys.argv[1], int(sys.argv[2])
+        sock = socket.create_server(host, port)
     except Exception as e:
-        print(f'listener: error: {e}')
-        print('listener: could not start')
+        print(f'client listener: error: {e}')
+        print('client listener: could not start')
         exit_event.set()  # main service can't start, then exit program
         return
 
     sock.settimeout(1)
     sock.listen()
-    print(f'listener: started on {addr}')
+    print(f'client listener: listening on {host}:{port}')
 
     with cf.ThreadPoolExecutor(max_workers=10) as tpe:
         while not exit_event.is_set():
@@ -131,7 +140,7 @@ def listen_to_clients():
             tpe.submit(handle_client, cconn)
 
         sock.close()
-        print('listener: stopped')
+        print('client listener: stopped')
 
 
 if __name__ == '__main__':

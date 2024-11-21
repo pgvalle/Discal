@@ -31,7 +31,7 @@ def spam(i):
 
         while True:
             v1 = random.randint(0, 10)
-            op = random.choice(VALID_OPERATIONS)
+            op = random.choice(['+', '-', '*', '/', '**', '%'])
             v2 = random.randint(0, 10)
 
             sock = None

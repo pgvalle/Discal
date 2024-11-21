@@ -10,16 +10,6 @@ import concurrent.futures as cf
 from threading import Thread, Event
 
 
-SERVERS = [
-    ('localhost', 1062, 1536),
-    #('localhost', 1064, 1538),
-    #('localhost', 1065, 1539),
-    ('localhost', 1063, 1537) ]
-
-CPUU_INTERVAL = len(SERVERS)  # seconds
-
-VALID_OPERATIONS = ['+', '-', '*', '/', '**', '%']
-
 CHUNK = 1024
 ENCODING = 'utf-8'
 
