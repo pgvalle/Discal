@@ -1,11 +1,9 @@
 from common import *
 import psutil
 
-
 VALID_OPERATIONS = ['+', '-', '*', '/', '**', '%']
 
 exit_event = Event()  # to cleanly exit threads (properly free ports)
-
 
 def main():
     if len(sys.argv) < 4:
@@ -27,7 +25,6 @@ def main():
     exit_event.set()
     calc_th.join()
     cpuu_th.join()
-
 
 # calculator service
 
@@ -114,7 +111,6 @@ def cpuu_handler(conn):
 
     conn.close()
 
-
 def cpuu():
     try:
         host, port = sys.argv[1], int(sys.argv[3])
@@ -139,7 +135,6 @@ def cpuu():
 
     sock.close()
     print('cpuu: stopped')
-
 
 if __name__ == '__main__':
     main()

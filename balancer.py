@@ -1,6 +1,6 @@
 from common import *
 
-
+# (host, calculator_port, cpu_usage_port)
 SERVERS = [
     ('localhost', 1062, 1536),
     #('localhost', 1064, 1538),
@@ -13,7 +13,6 @@ exit_event = Event()
 servers_cpuu = []
 rrl = []  # round robin list
 rri = 0  # round robing index
-
 
 def main():
     if len(sys.argv) < 3:
@@ -47,7 +46,6 @@ def main():
         cpuu_th.join()
     listener_th.join()
 
-
 def decide_server():
     global servers_cpuu, rrl, rri
 
@@ -66,7 +64,6 @@ def decide_server():
         rri %= len(rrl)
 
     return ip, calc_port
-
 
 # cpuu querier
 
