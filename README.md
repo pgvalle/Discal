@@ -1,33 +1,44 @@
 # Discal
 
-Discal is a distributed calculator. It's a project for my Distributed Systems class.
+Discal is a distributed calculator coded in python using only sockets. It's a project for my Distributed Systems class.
 
-## Requirements
+## Project requirements
 
-### General
+...
 
-A comunicação entre os componentes (cliente, proxy reverso e servidores) deve ser feita via sockets em Python.
-O código deve ser organizado em arquivos separados para o cliente, proxy reverso e servidores.
-Testar a aplicação com múltiplos clientes e servidores para garantir o balanceamento correto de carga.
+## How it works
+
+...
+
+## How to use
+
+**IMPORTANT:** Before anything, install [psutil](https://pypi.org/project/psutil/) and [tkinter](https://docs.python.org/3/library/tkinter.html) with `pip install -r dependencies.txt`
+
+You have to run [client.py](./client.py), [server.py](./server.py) and [balancer.py](./balancer.py). balancer.py must be run after server.py.
+
+### Running the load balancer
+
+Before running the load balancer, you should configuree what server instances you want it to connect to. That is done via editing the variable `SERVERS` in balancer.py.
+
+The actual host and port it's going to serve are arguments from the command-line
+
+```
+$ python balancer.py {host} {port}
+```
+
+### Running the server
+
+```
+$ python server.py {host} {calculator_port} {cpu_usage_port}
+```
 
 ### Client
 
-O cliente deverá se conectar ao proxy reverso e enviar uma requisição de operação matemática (ex: soma, subtração, multiplicação ou divisão) via socket.
-O cliente deve ser capaz de receber e exibir o resultado da operação enviada após a intermediação do proxy reverso.
+Simply run:
+```
+$ python client.py
+```
 
-### Reverse Proxy (Load Balancer)
+It's really simple to use the client application. You just place the load balancer host and port, then the values v1, v2 and op (+, -, * or /). After that, just hit **send** and you should see the result on top of the **???**.
 
-O proxy reverso deve escutar em uma determinada porta para receber as requisições dos clientes.
-O proxy reverso deve se comunicar com múltiplos servidores para identificar qual servidor está menos sobrecarregado. Para isso, os servidores devem reportar sua carga atual de CPU ao proxy.
-Com base na carga de CPU, o proxy deve selecionar o servidor mais apropriado (com menor carga) para encaminhar a requisição do cliente.
-O proxy deve intermediar a comunicação entre o cliente e o servidor selecionado, repassando a resposta do servidor de volta ao cliente.
-O proxy reverso deverá ser capaz de lidar com múltiplas requisições de clientes de forma simultânea, implementando controle de concorrência se necessário.
-
-### Servers
-
-Cada servidor deve escutar em duas portas diferentes:
-Porta de Status: para responder à solicitação do proxy reverso sobre a carga atual de CPU.
-Porta de Serviço de Calculadora: para receber e processar operações matemáticas (soma, subtração, multiplicação, divisão) enviadas pelo proxy reverso.
-O servidor deve retornar a carga de CPU quando solicitado pelo proxy reverso.
-O servidor deve processar a operação matemática enviada pelo cliente (via proxy) e retornar o resultado ao proxy, que por sua vez o encaminhará de volta ao cliente.
-O servidor deve registrar no console cada operação matemática realizada para fins de depuração.
+![DiscalC](./readme/discalc-screenshot.png)
